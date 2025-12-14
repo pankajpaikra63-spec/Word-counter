@@ -1,0 +1,885 @@
+<!-- ===== index.html ===== -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="description" content="Professional offline-capable text editor and word counter with advanced analysis, undo/redo history, and export features.">
+  <meta name="theme-color" content="#667eea">
+  <title>Pro Text Editor & Analyzer v5</title>
+  
+  <!-- Manifest Link -->
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Apple Touch Icon (Optional but good for PWA) -->
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="icon-192.png">
+
+  <style>
+    /* --- CSS Variables & Reset --- */
+    :root {
+      /* Light Mode */
+      --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --text-color: #ffffff;
+      --glass-bg: rgba(255, 255, 255, 0.25);
+      --glass-border: rgba(255, 255, 255, 0.4);
+      --input-bg: rgba(255, 255, 255, 0.96);
+      --input-text: #1f2937;
+      --shadow-sm: 0 4px 6px rgba(0,0,0,0.1);
+      --shadow-lg: 0 20px 50px rgba(0,0,0,0.25);
+      --accent-color: #4f46e5;
+      --focus-ring: rgba(255, 255, 255, 0.6);
+      --danger-color: #ef4444;
+      --success-color: #10b981;
+      --warning-bg: rgba(255, 193, 7, 0.9);
+      --warning-text: #5c4100;
+    }
+
+    body.dark-mode {
+      /* Dark Mode */
+      --bg-gradient: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+      --text-color: #e2e8f0;
+      --glass-bg: rgba(0, 0, 0, 0.45);
+      --glass-border: rgba(255, 255, 255, 0.15);
+      --input-bg: rgba(22, 27, 34, 0.96);
+      --input-text: #f1f5f9;
+      --shadow-lg: 0 20px 50px rgba(0,0,0,0.5);
+      --accent-color: #818cf8;
+      --focus-ring: rgba(129, 140, 248, 0.5);
+    }
+
+    /* Accessibility High Contrast Mode overrides */
+    @media (prefers-contrast: more) {
+      :root {
+        --glass-bg: #ffffff;
+        --input-bg: #ffffff;
+        --text-color: #000000;
+        --input-text: #000000;
+      }
+      body.dark-mode {
+        --glass-bg: #000000;
+        --input-bg: #000000;
+        --text-color: #ffffff;
+        --input-text: #ffffff;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      transition: background 0.5s ease;
+    }
+
+    /* Accessibility */
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+
+    button:focus-visible, textarea:focus-visible, input:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* Header */
+    header {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding: 0 10px;
+    }
+
+    h1 {
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      font-size: 1.8rem;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .status-indicator {
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--glass-bg);
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .status-indicator.visible { opacity: 1; }
+    .status-indicator.error { background: var(--warning-bg); color: var(--warning-text); border-color: transparent; }
+
+    .theme-toggle, .install-btn {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--text-color);
+      padding: 8px 16px;
+      border-radius: 30px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+      font-weight: 500;
+    }
+    .theme-toggle:hover, .install-btn:hover { background: rgba(255,255,255,0.3); }
+
+    /* Hidden Install Button */
+    .install-btn[hidden] { display: none; }
+
+    /* Main Layout */
+    .main-wrapper {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    /* Toolbar */
+    .toolbar-container {
+      position: relative;
+    }
+    
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      padding-bottom: 5px;
+      overflow-x: auto;
+      scrollbar-width: none; /* Firefox */
+      -webkit-overflow-scrolling: touch;
+    }
+    .toolbar::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+
+    .tool-group {
+      display: flex;
+      gap: 5px;
+      padding-right: 15px;
+      border-right: 1px solid var(--glass-border);
+    }
+    .tool-group:last-child { border-right: none; }
+
+    .tool-btn {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--text-color);
+      padding: 10px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      backdrop-filter: blur(5px);
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      min-width: 44px; /* Touch target size */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tool-btn:hover { background: rgba(255,255,255,0.4); transform: translateY(-1px); }
+    .tool-btn:active { transform: scale(0.98); }
+    .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    
+    /* Find & Replace Bar */
+    .find-replace-bar {
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 10px;
+      display: none; /* Hidden by default */
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      animation: slideDown 0.3s ease-out;
+      margin-top: 10px;
+    }
+    .find-replace-bar.active { display: flex; }
+
+    .fr-input {
+      background: var(--input-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--input-text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      flex: 1;
+      min-width: 120px;
+    }
+    
+    .checkbox-label {
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text-color);
+      cursor: pointer;
+    }
+    .checkbox-label input { width: 16px; height: 16px; accent-color: var(--accent-color); }
+
+    /* Text Area */
+    .editor-container {
+      position: relative;
+      width: 100%;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 40vh; /* Dynamic height base */
+      padding: 25px;
+      font-size: 1.1rem;
+      font-family: 'Outfit', sans-serif; /* Fallback */
+      line-height: 1.6;
+      border: none;
+      border-radius: 20px;
+      background: var(--input-bg);
+      color: var(--input-text);
+      resize: vertical;
+      outline: none;
+      box-shadow: var(--shadow-lg);
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 15px;
+      margin-top: 10px;
+    }
+
+    .stat-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      padding: 15px;
+      border-radius: 16px;
+      text-align: center;
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s;
+    }
+    
+    .stat-num { font-size: 1.6rem; font-weight: 700; display: block; margin-bottom: 4px; }
+    .stat-num.updated { animation: pulse 0.4s ease-in-out; }
+    .stat-label { font-size: 0.8rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* Footer / Actions */
+    .action-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    
+    .read-time { 
+      font-size: 0.9rem; 
+      padding: 8px 15px;
+      background: var(--glass-bg);
+      border-radius: 20px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .btn-action {
+      padding: 12px 24px;
+      border-radius: 50px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 1rem;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      transition: all 0.2s;
+    }
+    .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+
+    .btn-primary { background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); color: white; }
+    .btn-danger { background: linear-gradient(135deg, #ff512f 0%, #dd2476 100%); color: white; }
+    .btn-secondary { background: var(--input-bg); color: var(--input-text); }
+    
+    /* Success State Class */
+    .btn-success { background: var(--success-color) !important; color: white !important; pointer-events: none; }
+
+    /* Modal Dialog */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 1000;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+    .modal-content {
+      background: var(--input-bg);
+      color: var(--input-text);
+      padding: 30px;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      transform: scale(0.9); transition: transform 0.3s;
+    }
+    .modal-overlay.active .modal-content { transform: scale(1); }
+    .modal-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 25px; }
+
+    /* Animations */
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Print Styles (PDF Export) */
+    @media print {
+      body { background: white; color: black; display: block; padding: 0; }
+      header, .toolbar-container, .stats-grid, .action-row, .modal-overlay { display: none !important; }
+      textarea {
+        border: none; box-shadow: none; background: transparent; color: black;
+        width: 100%; height: auto; resize: none; overflow: visible;
+        font-family: 'Times New Roman', serif; font-size: 12pt;
+      }
+      .main-wrapper { max-width: 100%; }
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.5rem; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .tool-btn { padding: 8px 12px; font-size: 0.85rem; }
+      .action-row { flex-direction: column; align-items: stretch; text-align: center; }
+      .btn-group { display: flex; gap: 10px; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <header role="banner">
+    <h1>
+      <span>📝</span> Pro Editor
+      <span id="saveStatus" class="status-indicator" aria-live="polite">Saved</span>
+    </h1>
+    <div class="header-controls">
+      <button id="btnInstall" class="install-btn" aria-label="Install App" hidden>📲 Install</button>
+      <button id="themeToggle" class="theme-toggle" aria-label="Toggle Dark Mode">🌙 Night Mode</button>
+    </div>
+  </header>
+
+  <main class="main-wrapper">
+    
+    <div class="toolbar-container" role="toolbar" aria-label="Editor Toolbar">
+      <div class="toolbar">
+        <!-- History Group -->
+        <div class="tool-group">
+          <button class="tool-btn" id="btnUndo" aria-label="Undo (Ctrl+Z)" disabled>
+            <span aria-hidden="true">↩</span>
+          </button>
+          <button class="tool-btn" id="btnRedo" aria-label="Redo (Ctrl+Y)" disabled>
+            <span aria-hidden="true">↪</span>
+          </button>
+        </div>
+
+        <!-- Transform Group -->
+        <div class="tool-group">
+          <button class="tool-btn" id="btnUpper" aria-label="Convert to Uppercase">AA</button>
+          <button class="tool-btn" id="btnLower" aria-label="Convert to Lowercase">aa</button>
+          <button class="tool-btn" id="btnCapital" aria-label="Title Case">Aa</button>
+          <button class="tool-btn" id="btnClean" aria-label="Remove Extra Spaces">_ _</button>
+        </div>
+
+        <!-- Features Group -->
+        <div class="tool-group">
+          <button class="tool-btn" id="btnFind" aria-label="Toggle Find and Replace">🔍</button>
+          <button class="tool-btn" id="btnExportTxt" aria-label="Download as Text File">⬇ TXT</button>
+          <button class="tool-btn" id="btnExportPdf" aria-label="Print or Save as PDF">🖨 PDF</button>
+        </div>
+      </div>
+
+      <!-- Find & Replace Interface -->
+      <div id="findReplaceBar" class="find-replace-bar">
+        <input type="text" id="findInput" class="fr-input" placeholder="Find..." aria-label="Text to find">
+        <input type="text" id="replaceInput" class="fr-input" placeholder="Replace with..." aria-label="Replacement text">
+        <label class="checkbox-label"><input type="checkbox" id="matchCase"> Match Case</label>
+        <button id="btnReplaceAll" class="tool-btn" style="min-width:auto; padding: 8px 12px;">Replace All</button>
+        <button id="btnCloseFind" class="tool-btn" style="min-width:auto; padding: 8px 12px;" aria-label="Close Find Bar">✕</button>
+      </div>
+    </div>
+
+    <div class="editor-container">
+      <label for="textInput" class="visually-hidden">Text Editor</label>
+      <textarea id="textInput" placeholder="Start writing something amazing..." spellcheck="false"></textarea>
+    </div>
+
+    <div class="action-row">
+      <div class="read-time" aria-live="polite">⏱️ <span id="readTime">0 min</span> read</div>
+      <div class="btn-group">
+        <button id="btnCopy" class="btn-action btn-primary">Copy Text</button>
+        <button id="btnClear" class="btn-action btn-danger">Clear</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <section class="stats-grid" aria-label="Text Statistics">
+      <div class="stat-card">
+        <span class="stat-num" id="statWords">0</span>
+        <span class="stat-label">Words</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" id="statChars">0</span>
+        <span class="stat-label">Chars</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" id="statSentences">0</span>
+        <span class="stat-label">Sentences</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" id="statParas">0</span>
+        <span class="stat-label">Paras</span>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Custom Modal -->
+  <div id="confirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-content">
+      <h2 id="modalTitle" style="margin-bottom:10px;">Are you sure?</h2>
+      <p>This will delete all text. This action is undoable.</p>
+      <div class="modal-buttons">
+        <button id="btnModalCancel" class="btn-action btn-secondary" style="padding: 10px 20px;">Cancel</button>
+        <button id="btnModalConfirm" class="btn-action btn-danger" style="padding: 10px 20px;">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Pro Text Editor Application
+     * Version 5.0 (PWA Enabled)
+     */
+    const App = (() => {
+      // --- Configuration ---
+      const CONFIG = {
+        saveDelay: 800,
+        statDelay: 150,
+        maxHistory: 100
+      };
+
+      // --- State ---
+      let state = {
+        history: [],
+        historyIndex: -1
+      };
+
+      // --- DOM Elements ---
+      const dom = {
+        input: document.getElementById('textInput'),
+        stats: {
+          words: document.getElementById('statWords'),
+          chars: document.getElementById('statChars'),
+          sentences: document.getElementById('statSentences'),
+          paras: document.getElementById('statParas'),
+          time: document.getElementById('readTime')
+        },
+        tools: {
+          undo: document.getElementById('btnUndo'),
+          redo: document.getElementById('btnRedo'),
+          upper: document.getElementById('btnUpper'),
+          lower: document.getElementById('btnLower'),
+          capital: document.getElementById('btnCapital'),
+          clean: document.getElementById('btnClean'),
+          find: document.getElementById('btnFind'),
+          exportTxt: document.getElementById('btnExportTxt'),
+          exportPdf: document.getElementById('btnExportPdf')
+        },
+        actions: {
+          copy: document.getElementById('btnCopy'),
+          clear: document.getElementById('btnClear')
+        },
+        themeToggle: document.getElementById('themeToggle'),
+        saveStatus: document.getElementById('saveStatus'),
+        findBar: {
+          container: document.getElementById('findReplaceBar'),
+          find: document.getElementById('findInput'),
+          replace: document.getElementById('replaceInput'),
+          matchCase: document.getElementById('matchCase'),
+          btnDo: document.getElementById('btnReplaceAll'),
+          btnClose: document.getElementById('btnCloseFind')
+        },
+        modal: {
+          overlay: document.getElementById('confirmModal'),
+          confirm: document.getElementById('btnModalConfirm'),
+          cancel: document.getElementById('btnModalCancel')
+        }
+      };
+
+      // --- Utilities ---
+      const debounce = (fn, delay) => {
+        let timeoutId;
+        return (...args) => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => fn.apply(null, args), delay);
+        };
+      };
+
+      // --- History Management ---
+      const saveHistory = (force = false) => {
+        const text = dom.input.value;
+        const selectionStart = dom.input.selectionStart;
+        const selectionEnd = dom.input.selectionEnd;
+
+        // Don't save if identical to current history head
+        if (!force && state.historyIndex >= 0 && state.history[state.historyIndex].text === text) {
+          return;
+        }
+
+        // Truncate future if in middle
+        if (state.historyIndex < state.history.length - 1) {
+          state.history = state.history.slice(0, state.historyIndex + 1);
+        }
+
+        state.history.push({ text, start: selectionStart, end: selectionEnd });
+        if (state.history.length > CONFIG.maxHistory) {
+          state.history.shift();
+        }
+        state.historyIndex = state.history.length - 1;
+        
+        updateUndoUI();
+        triggerLocalStorageSave();
+      };
+
+      const undo = () => {
+        if (state.historyIndex > 0) {
+          state.historyIndex--;
+          restoreState();
+        }
+      };
+
+      const redo = () => {
+        if (state.historyIndex < state.history.length - 1) {
+          state.historyIndex++;
+          restoreState();
+        }
+      };
+
+      const restoreState = () => {
+        const record = state.history[state.historyIndex];
+        dom.input.value = record.text;
+        dom.input.setSelectionRange(record.start, record.end);
+        updateUndoUI();
+        analyzeText();
+        dom.input.focus();
+        triggerLocalStorageSave();
+      };
+
+      const updateUndoUI = () => {
+        dom.tools.undo.disabled = state.historyIndex <= 0;
+        dom.tools.redo.disabled = state.historyIndex >= state.history.length - 1;
+      };
+
+      // --- Logic ---
+      const analyzeText = () => {
+        const text = dom.input.value;
+        
+        // Words: split by whitespace, filter empty
+        const words = text.trim() === '' ? [] : text.trim().split(/\s+/);
+        
+        // Sentences
+        let sentenceCount = 0;
+        if (text.trim().length > 0) {
+          if (window.Intl && Intl.Segmenter) {
+            const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
+            sentenceCount = [...segmenter.segment(text)].length;
+          } else {
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            sentenceCount = sentences.length;
+          }
+        }
+
+        // Paragraphs
+        const paras = text.split(/\n+/).filter(p => p.trim().length > 0).length;
+
+        // Reading time
+        const time = Math.ceil(words.length / 200);
+        let timeString = '';
+        if (words.length > 0 && time < 1) {
+          timeString = '< 1 min';
+        } else {
+          timeString = `${time} ${time === 1 ? 'min' : 'mins'}`;
+        }
+        if (words.length === 0) timeString = '0 mins';
+
+        // Update DOM
+        updateStat(dom.stats.words, words.length);
+        updateStat(dom.stats.chars, text.length);
+        updateStat(dom.stats.sentences, sentenceCount);
+        updateStat(dom.stats.paras, paras);
+        dom.stats.time.textContent = timeString;
+      };
+
+      const updateStat = (el, val) => {
+        if (el.innerText != val) {
+          el.innerText = val;
+          el.classList.remove('updated');
+          void el.offsetWidth; // Trigger reflow
+          el.classList.add('updated');
+        }
+      };
+
+      // --- Transformations ---
+      const transform = (type) => {
+        const text = dom.input.value;
+        let newText = text;
+
+        if (!text) return;
+
+        saveHistory(true); 
+
+        switch(type) {
+          case 'upper': newText = text.toUpperCase(); break;
+          case 'lower': newText = text.toLowerCase(); break;
+          case 'capital':
+            newText = text.replace(/\b\w/g, char => char.toUpperCase());
+            break;
+          case 'clean':
+            newText = text.replace(/\s+/g, ' ').trim();
+            break;
+        }
+
+        if (newText !== text) {
+          dom.input.value = newText;
+          saveHistory(true); 
+          analyzeText();
+        }
+      };
+
+      // --- Find & Replace ---
+      const toggleFind = () => {
+        dom.findBar.container.classList.toggle('active');
+        if (dom.findBar.container.classList.contains('active')) {
+          dom.findBar.find.focus();
+        }
+      };
+
+      const executeReplace = () => {
+        const findText = dom.findBar.find.value;
+        const replaceText = dom.findBar.replace.value;
+        const matchCase = dom.findBar.matchCase.checked;
+
+        if (!findText) return;
+
+        const text = dom.input.value;
+        const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const flags = matchCase ? 'g' : 'gi';
+        const regex = new RegExp(escapedFind, flags);
+        
+        const newText = text.replace(regex, replaceText);
+        
+        if (newText !== text) {
+          saveHistory(true); 
+          dom.input.value = newText;
+          saveHistory(true); 
+          analyzeText();
+        }
+      };
+
+      // --- Persistence (Debounced) ---
+      const triggerLocalStorageSave = debounce(() => {
+        try {
+          localStorage.setItem('editor_content', dom.input.value);
+          dom.saveStatus.textContent = "Saved";
+          dom.saveStatus.classList.remove('error');
+          dom.saveStatus.classList.add('visible');
+          setTimeout(() => dom.saveStatus.classList.remove('visible'), 2000);
+        } catch (e) { 
+          console.error('Storage quota exceeded'); 
+          dom.saveStatus.textContent = "Storage Full";
+          dom.saveStatus.classList.add('error', 'visible');
+        }
+      }, CONFIG.saveDelay);
+
+      // --- Load Logic ---
+      const loadState = () => {
+        const saved = localStorage.getItem('editor_content');
+        if (saved) {
+          dom.input.value = saved;
+          state.history = [{ text: saved, start: 0, end: 0 }];
+          state.historyIndex = 0;
+          analyzeText();
+        } else {
+          state.history = [{ text: "", start: 0, end: 0 }];
+          state.historyIndex = 0;
+        }
+        updateUndoUI();
+
+        const isDark = localStorage.getItem('theme') === 'dark';
+        if (isDark) toggleTheme(true);
+      };
+
+      // --- Theme ---
+      const toggleTheme = (forceDark = null) => {
+        const isDark = forceDark !== null ? forceDark : !document.body.classList.contains('dark-mode');
+        document.body.classList.toggle('dark-mode', isDark);
+        dom.themeToggle.innerText = isDark ? '☀️ Day Mode' : '🌙 Night Mode';
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      };
+
+      // --- Export/Clipboard ---
+      const copyToClipboard = async () => {
+        if (!dom.input.value) return;
+        try {
+          await navigator.clipboard.writeText(dom.input.value);
+          showToast(dom.actions.copy, 'Copied!');
+        } catch (err) {
+          dom.input.select();
+          document.execCommand('copy');
+          showToast(dom.actions.copy, 'Copied!');
+        }
+      };
+
+      const showToast = (btn, msg) => {
+        const originalText = btn.innerText;
+        btn.innerText = msg;
+        btn.classList.add('btn-success');
+        
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.classList.remove('btn-success');
+        }, 1500);
+      };
+
+      const downloadTxt = () => {
+        const blob = new Blob([dom.input.value], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'document.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const printPdf = () => {
+        window.print();
+      };
+
+      // --- Modal / Clear Logic ---
+      const openModal = () => dom.modal.overlay.classList.add('active');
+      const closeModal = () => dom.modal.overlay.classList.remove('active');
+      
+      const confirmClear = () => {
+        saveHistory(true); 
+        dom.input.value = '';
+        saveHistory(true); 
+        analyzeText();
+        closeModal();
+      };
+
+      // --- Initialization ---
+      const init = () => {
+        loadState();
+
+        const debouncedAnalyze = debounce(analyzeText, CONFIG.statDelay);
+        const debouncedHistorySave = debounce(() => saveHistory(), CONFIG.saveDelay);
+
+        dom.input.addEventListener('input', () => {
+          debouncedAnalyze();
+          debouncedHistorySave();
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey)) {
+            if (e.key === 'z') { e.preventDefault(); undo(); }
+            if (e.key === 'y') { e.preventDefault(); redo(); }
+            if (e.key === 's') { e.preventDefault(); saveHistory(true); }
+          }
+        });
+
+        dom.tools.undo.addEventListener('click', undo);
+        dom.tools.redo.addEventListener('click', redo);
+        
+        dom.tools.upper.addEventListener('click', () => transform('upper'));
+        dom.tools.lower.addEventListener('click', () => transform('lower'));
+        dom.tools.capital.addEventListener('click', () => transform('capital'));
+        dom.tools.clean.addEventListener('click', () => transform('clean'));
+        
+        dom.tools.find.addEventListener('click', toggleFind);
+        dom.findBar.btnClose.addEventListener('click', toggleFind);
+        dom.findBar.btnDo.addEventListener('click', executeReplace);
+        
+        dom.tools.exportTxt.addEventListener('click', downloadTxt);
+        dom.tools.exportPdf.addEventListener('click', printPdf);
+
+        dom.actions.copy.addEventListener('click', copyToClipboard);
+        dom.actions.clear.addEventListener('click', openModal);
+        
+        dom.modal.cancel.addEventListener('click', closeModal);
+        dom.modal.confirm.addEventListener('click', confirmClear);
+
+        dom.themeToggle.addEventListener('click', () => toggleTheme());
+      };
+
+      return { init };
+    })();
+
+    // Boot App
+    document.addEventListener('DOMContentLoaded', App.init);
+
+    // --- PWA Installation Logic ---
+    let deferredPrompt;
+    const btnInstall = document.getElementById('btnInstall');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Prevent Chrome 67 and earlier from automatically showing the prompt
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      deferredPrompt = e;
+      // Update UI to notify the user they can add to home screen
+      btnInstall.hidden = false;
+    });
+
+    btnInstall.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      // Show the prompt
+      deferredPrompt.prompt();
+      // Wait for the user to respond to the prompt
+      const { outcome } = await deferredPrompt.userChoice;
+      // We no longer need the prompt.  Clear it up.
+      deferredPrompt = null;
+      btnInstall.hidden = true;
+    });
+
+    // --- Service Worker Registration ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW Registered'))
+          .catch(err => console.log('SW Registration Failed', err));
+      });
+    }
+  </script>
+</body>
+</html>
